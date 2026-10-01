@@ -1,0 +1,45 @@
+# What the package is for and how to use it, for tools and AI agents (see AGENTS.md).
+# `import` paths and `check` ids are verified by tests/test_manifest.py.
+
+[package]
+name = "bazis-author"
+summary = "author fields of records (who created, who last changed), filled from the user of the request"
+solves = [
+    "record who created and who last changed an object",
+    "author fields that clients cannot set",
+    "the `author` selector of bazis-permit (users see or change their own objects)",
+]
+requires = ["bazis", "bazis-users"]
+pairs_well = ["bazis-permit"]
+
+[[extension_points]]
+name = "AuthorMixin"
+import = "bazis.contrib.author.models_abstract.AuthorMixin"
+use_when = "a model with the fields author and author_updated"
+
+[[extension_points]]
+name = "AuthorRouteBase"
+import = "bazis.contrib.author.routes_abstract.AuthorRouteBase"
+use_when = "the route of an AuthorMixin model (anonymous requests allowed)"
+
+[[extension_points]]
+name = "AuthorRequiredRouteBase"
+import = "bazis.contrib.author.routes_abstract.AuthorRequiredRouteBase"
+use_when = "the route of an AuthorMixin model that requires authentication"
+
+[[extension_points]]
+name = "AuthorRouteMixin"
+import = "bazis.contrib.author.routes_abstract.AuthorRouteMixin"
+use_when = "combine with another route base that knows the user (PermitRouteBase)"
+
+[[extension_points]]
+name = "AuthorAdminMixin"
+import = "bazis.contrib.author.admin_abstract.AuthorAdminMixin"
+use_when = "the admin of an AuthorMixin model (and its inlines)"
+
+[[pitfalls]]
+text = "a route of an AuthorMixin model without AuthorRouteMixin lets clients set author and author_updated"
+check = "author.W001"
+
+[[pitfalls]]
+text = "outside a request (tasks, shell, commands) AuthorMixin.save() has no user and leaves the author fields as they are"
