@@ -157,3 +157,48 @@ def test_author(sample_app):
         .objects.filter(pk=response.json()['data']['id'])
         .exists()
     )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_author_cannot_be_set_by_client(sample_app):
+    user_1 = User.objects.create_user('user1', password='weak_password_1')
+    user_2 = User.objects.create_user('user2', password='weak_password_2')
+    model = apps.get_model('entity.ParentEntity')
+    client = get_api_client(sample_app, user_1.jwt_build())
+    spoofed = {
+        'author': {'data': {'id': str(user_2.id), 'type': 'users.user'}},
+        'author_updated': {'data': {'id': str(user_2.id), 'type': 'users.user'}},
+    }
+
+    response = client.post(
+        '/api/v1/entity/parent_entity/',
+        json_data={
+            'data': {
+                'type': 'entity.parent_entity',
+                'bs:action': 'add',
+                'attributes': {'name': 'Test name'},
+                'relationships': spoofed,
+            },
+        },
+    )
+    assert response.status_code == 201
+    item = model.objects.get(pk=response.json()['data']['id'])
+    assert item.author == user_1
+    assert item.author_updated == user_1
+
+    response = get_api_client(sample_app, user_2.jwt_build()).patch(
+        f'/api/v1/entity/parent_entity/{item.id}/',
+        json_data={
+            'data': {
+                'id': str(item.id),
+                'type': 'entity.parent_entity',
+                'bs:action': 'change',
+                'attributes': {'name': 'Changed'},
+                'relationships': {'author': {'data': {'id': str(user_2.id), 'type': 'users.user'}}},
+            },
+        },
+    )
+    assert response.status_code == 200
+    item.refresh_from_db()
+    assert item.author == user_1
+    assert item.author_updated == user_2
