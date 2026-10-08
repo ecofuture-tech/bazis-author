@@ -13,9 +13,10 @@
 # limitations under the License.
 
 from django.apps import apps
+from django.utils.translation import gettext_lazy as _
 
 from bazis.contrib.author.routes_abstract import AuthorRequiredRouteBase, AuthorRouteBase
-from bazis.core.schemas import SchemaFields
+from bazis.core.schemas import SchemaField, SchemaFields
 
 
 class ChildEntityRouteSet(AuthorRouteBase):
@@ -32,6 +33,16 @@ class ChildEntityRouteSet(AuthorRouteBase):
 
 class DependentEntityRouteSet(AuthorRouteBase):
     model = apps.get_model('entity.DependentEntity')
+
+    # the author fields have no verbose_name: the route gives them a title
+    fields = {
+        None: SchemaFields(
+            include={
+                'author': SchemaField(source='author', title=_('Author')),
+                'author_updated': SchemaField(source='author_updated', title=_('Updated by')),
+            },
+        ),
+    }
 
 
 class ExtendedEntityRouteSet(AuthorRequiredRouteBase):
