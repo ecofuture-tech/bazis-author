@@ -41,8 +41,10 @@ class DocumentAdmin(AuthorAdminMixin, DtAdminMixin, admin.ModelAdmin):
   the fields stay as they are: set them explicitly there.
 - `AuthorAdminMixin` sets `author` from `request.user` if it is empty, `author_updated`
   otherwise (also in inline formsets), makes both fields read-only, adds the search by
-  `author__username` and an autocomplete filter by author (the admin of the user model
-  needs `search_fields`).
+  `author__username` and an autocomplete filter by author (`AuthorFilter`; the admin of
+  the user model needs `search_fields`). With Django 6.1 the changelist needs
+  bazis-author 2.4.2: the filter of 2.4.1 fails with `TypeError` (`get_queryset()`
+  missing `instance`).
 
 ## Titles
 

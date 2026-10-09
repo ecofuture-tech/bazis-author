@@ -19,6 +19,19 @@ from admin_auto_filters.filters import AutocompleteFilterFactory
 from bazis.core.utils.sets_order import OrderedSet
 
 
+class AuthorFilter(AutocompleteFilterFactory(_('Author'), 'author')):
+    """
+    The autocomplete filter of the admin by author. The filter of
+    django-admin-autocomplete-filter 0.7 takes the choices from the descriptor of the field
+    (`get_queryset()`), which needs an instance since Django 6.1: they are the users of the
+    related model instead.
+    """
+
+    @staticmethod
+    def get_queryset_for_field(model, name):
+        return model._meta.get_field(name).related_model._default_manager.all()
+
+
 class AuthorAdminMixin:
     def get_search_fields(self, request):
         return tuple(OrderedSet(super().get_search_fields(request) + ('author__username',)))
@@ -29,9 +42,7 @@ class AuthorAdminMixin:
         )
 
     def get_list_filter(self, request):
-        return (AutocompleteFilterFactory(_('Author'), 'author'),) + super().get_list_filter(
-            request
-        )
+        return (AuthorFilter,) + super().get_list_filter(request)
 
     def save_model(self, request, obj, form, change):
         if not obj.author:
