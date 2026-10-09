@@ -43,3 +43,6 @@ check = "author.W001"
 
 [[pitfalls]]
 text = "outside a request (tasks, shell, commands) AuthorMixin.save() has no user and leaves the author fields as they are"
+
+[[pitfalls]]
+text = "author and author_updated have no verbose_name (titles `author`, `author updated`): title them in the route with SchemaField(source='author', title=_('Author')), not by redeclaring the fields (a migration of each model)"

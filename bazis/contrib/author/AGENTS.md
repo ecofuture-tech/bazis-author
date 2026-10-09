@@ -44,6 +44,26 @@ class DocumentAdmin(AuthorAdminMixin, DtAdminMixin, admin.ModelAdmin):
   `author__username` and an autocomplete filter by author (the admin of the user model
   needs `search_fields`).
 
+## Titles
+
+The fields have no `verbose_name`: the schemas title them `author` and `author updated`,
+in every language. Give them a title in the route, without a migration
+(`SchemaField` of `bazis.core.schemas`, `gettext_lazy as _`):
+
+```python
+class DocumentRouteSet(AuthorRouteBase):
+    fields = {
+        None: SchemaFields(include={
+            'author': SchemaField(source='author', title=_('Author')),
+            'author_updated': SchemaField(source='author_updated', title=_('Updated by')),
+        }),
+    }
+```
+
+The CREATE and UPDATE schemas still leave them out (`AuthorRouteMixin` excludes them, and
+an exclusion wins). Redeclaring the fields on the model also titles them, at the cost of a
+migration of each model.
+
 ## Rules
 
 - Every JSON:API route of an `AuthorMixin` model inherits `AuthorRouteMixin` (usually
