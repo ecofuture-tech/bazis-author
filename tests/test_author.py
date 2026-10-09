@@ -159,6 +159,16 @@ def test_author(sample_app):
     )
 
 
+def assert_refused(response, *fields):
+    """422 ERR_VALIDATE extra_forbidden for each of the relationships (bazis >= 2.12)."""
+    assert response.status_code == 422, response.text
+    errors = response.json()['errors']
+    assert {(it['code'], it['title']) for it in errors} == {('ERR_VALIDATE', 'extra_forbidden')}
+    assert sorted(it['source']['pointer'] for it in errors) == [
+        f'/data/relationships/{it}' for it in sorted(fields)
+    ]
+
+
 @pytest.mark.django_db(transaction=True)
 def test_author_cannot_be_set_by_client(sample_app):
     user_1 = User.objects.create_user('user1', password='weak_password_1')
@@ -170,34 +180,51 @@ def test_author_cannot_be_set_by_client(sample_app):
         'author_updated': {'data': {'id': str(user_2.id), 'type': 'users.user'}},
     }
 
-    response = client.post(
-        '/api/v1/entity/parent_entity/',
-        json_data={
-            'data': {
-                'type': 'entity.parent_entity',
-                'bs:action': 'add',
-                'attributes': {'name': 'Test name'},
-                'relationships': spoofed,
+    def create(relationships):
+        return client.post(
+            '/api/v1/entity/parent_entity/',
+            json_data={
+                'data': {
+                    'type': 'entity.parent_entity',
+                    'bs:action': 'add',
+                    'attributes': {'name': 'Test name'},
+                    'relationships': relationships,
+                },
             },
-        },
-    )
+        )
+
+    # the author is not in the create and update schemas: bazis 2.12 refuses such a field
+    # (422 extra_forbidden), before it the route ignored it; never written either way
+    response = create(spoofed)
+    if response.status_code != 201:
+        assert_refused(response, 'author', 'author_updated')
+        assert not model.objects.exists()
+        response = create({})
     assert response.status_code == 201
     item = model.objects.get(pk=response.json()['data']['id'])
     assert item.author == user_1
     assert item.author_updated == user_1
 
-    response = get_api_client(sample_app, user_2.jwt_build()).patch(
-        f'/api/v1/entity/parent_entity/{item.id}/',
-        json_data={
-            'data': {
-                'id': str(item.id),
-                'type': 'entity.parent_entity',
-                'bs:action': 'change',
-                'attributes': {'name': 'Changed'},
-                'relationships': {'author': {'data': {'id': str(user_2.id), 'type': 'users.user'}}},
+    def update(relationships):
+        return get_api_client(sample_app, user_2.jwt_build()).patch(
+            f'/api/v1/entity/parent_entity/{item.id}/',
+            json_data={
+                'data': {
+                    'id': str(item.id),
+                    'type': 'entity.parent_entity',
+                    'bs:action': 'change',
+                    'attributes': {'name': 'Changed'},
+                    'relationships': relationships,
+                },
             },
-        },
-    )
+        )
+
+    response = update({'author': {'data': {'id': str(user_2.id), 'type': 'users.user'}}})
+    if response.status_code != 200:
+        assert_refused(response, 'author')
+        item.refresh_from_db()
+        assert (item.name, item.author, item.author_updated) == ('Test name', user_1, user_1)
+        response = update({})
     assert response.status_code == 200
     item.refresh_from_db()
     assert item.author == user_1
